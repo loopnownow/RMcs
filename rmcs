@@ -1,0 +1,340 @@
+packages = c(  "Boruta","broom","caret","corrplot","cowplot","customLayout",  "DMwR","dplyr","ggedit","ggfortify","ggplot2","ggsci",
+  "glmnet","gridExtra","igraph","irr","ModelMetrics","maptools","mRMRe",  "nricens","plyr","PredictABEL","pROC","psych","readxl",
+  "reshape2","ResourceSelection","rmda","rms","stringr","tidyr" )
+ipak <- function(pkg){
+  new.pkg <- pkg[!(pkg %in% installed.packages()[, "Package"])]
+  if (length(new.pkg)) 
+  install.packages(new.pkg, dependencies = TRUE)
+  sapply(pkg, require, character.only = TRUE)
+}
+#ipak(packages)
+
+library(Boruta);	library(broom);	library(caret);	library(corrplot);	library(cowplot);	library(customLayout);	
+library(DMwR);	library(dplyr);	library(ggedit);	library(ggfortify);	library(ggplot2);	library(ggsci);	
+library(glmnet);	library(gridExtra);	library(igraph);library(irr);	library(ModelMetrics);	library(maptools);	library(mRMRe);	
+library(nricens);	library(plyr);	library(PredictABEL);	library(pROC);	library(psych);	library(readxl);	
+library(reshape2);	library(ResourceSelection);	library(rmda);	library(rms);	library(stringr);	library(tidyr)
+options(max.print  =  10000)
+#;library(rgdal)
+#col = c('#ff7473','#ffc952','#47b8e0','#34314c','#f349eb','#ff7499','#ffc999','#47b899','#343199','#f34999','#1B191999');pie(rep(1, 11), col = col)
+#红色#ff7473, 黄色#ffc952, 蓝色#47b8e0， 黑色#34314c， 粉色#f349eb
+#---------------------------------------------lasso----------------------------------------------
+LASSO <- function(x,y,...){
+  lasso.cv <- cv.glmnet(x,y,family = "binomial",type.measure = "auc")  
+  lasso <- glmnet(x = lasso.x,y = lasso.y,family = "binomial")
+  plot(lasso.cv,xlab = "Log(lambda)")
+  plot(lasso, xvar  =  'lambda',xlab = "Log(lambda)")
+  number <- which(coef(lasso,s = lasso.cv$lambda.min) != 0)   
+  lasso.coef <- coef(lasso,s = lasso.cv$lambda.min)[number][-1]
+  signature <- colnames(rad.x[Index,][number - 1])
+  print(signature)  
+  return(signature)
+}
+
+LASSO.plot <- function(x,y,...){
+  lasso.cv <- cv.glmnet(x,y,family = "binomial",type.measure = "auc")  
+  lasso <- glmnet(x = lasso.x,y = lasso.y,family = "binomial")
+  A <- autoplot(lasso.cv,label.n = 8,label.vjust  =  -1) + geom_point(x = log(lasso.cv$lambda), y = lasso.cv$cvm, colour = "#ff7473") + geom_errorbar(aes(x = log(lasso.cv$lambda),ymin = lasso.cv$cvlo,ymax = lasso.cv$cvup),  colour = "#47b8e0") + theme_bw() + theme(panel.border  =  element_rect(color = "white"),plot.title = element_text(face = "bold",hjust = 0.5,size = 16),plot.caption = element_text(hjust = 0,size = 16)) + labs(title  =  "Feature selection using binary LASSO logistic regression",caption  =  "A" )
+  
+  B <- autoplot(lasso, xvar  =  'lambda',xlab = "Log(Lambda)",label = T)  + geom_vline(xintercept  =  log(lasso.cv$lambda.min), linetype  =  'dashed')  + theme_bw() + theme(panel.border  =  element_rect(color = "white"),legend.position = "none" ,plot.caption = element_text(hjust = 0,size = 16)) + labs(caption  =  "B")
+print(A)
+print(B)
+  #  tiff(file = "LASSO.tiff", width = 6400, height = 8500, units = "px",compression = "lzw", res = 600)
+#  lay1 <- lay_new( mat = matrix(1:2, nrow = 2), heights = c(1,1)) 
+#  lay_show(lay1)
+#  lay_set(lay1) 
+#  lay_grid(list(A, B), lay1)
+#  garbage <- dev.off()
+}
+#-----------------------------------------------radscore------------------------------------------
+#col = c('#ff7473','#ffc952','#47b8e0','#34314c','#f349eb','#ff7499','#ffc999','#47b899','#343199','#f34999');pie(rep(1, 10), col = col)
+radscore.plot  <-  function(y,x,...){
+  x.scale  <-  scale(x, center  =  T,scale = F) 
+  radscoredata  <-  data.frame(y,x = x.scale,x)
+  radscoredata.sort <- data.frame(radscoredata[order(-radscoredata$x),],num = 1:length(x))
+  ggplot(radscoredata.sort,aes(num,x))  +  geom_bar(aes(fill = factor(y)),stat = "identity")   + 
+    scale_fill_manual(values = c( "#ff7473","#47b8e0"),breaks  =  c("1", "0"), labels  =  c("ng", "g")) +  
+    labs(x = "Patients' number", y = "Zero-centered radscore ", fill = "") +
+    theme_bw() + theme(panel.border = element_rect(color = "white"),plot.title = element_text(face = "bold",hjust = 0.5,size = 16),legend.position = c(0.9,0.9),legend.justification = c(0.5,0.5),plot.caption = element_text(hjust = 0,size = 16)) 
+}
+RADSCORE.plot <- function(x1,y1,x2,y2,...){
+  radscore.plot(y = y1,x = x1) + labs(title  =  "Primary group",caption  =  "A" , fill = "")
+  radscore.plot(y = y2,x = x2) + labs(title  =  "Validation group",caption  =  "B" , fill = "")
+#  lay1 <- lay_new( mat = matrix(1:2, nrow = 2), heights = c(1,1)) 
+#  lay_show(lay1)
+#  lay_set(lay1) 
+#  lay_grid(list(A, B), lay1)
+#  garbage <- dev.off()
+}
+#-----------------------------------------------contribution--------------------------------------
+#col = c('#ff7473','#ffc952','#47b8e0','#34314c','#f349eb','#ff7499','#ffc999','#47b899','#343199','#f34999','#1B191999',"#FED43999","#709AE199","#FD744699","#D5E4A299","#46732E99","#71D0F599");pie(rep(1, 11), col = col)
+contribution.plot <- function(coef,...){
+  coefficients <- as.numeric(round(abs(coef)[1:length(coef)]*100,2))
+  contribution <- data.frame(Signature = signature,coefficients)
+  contribution <- data.frame(contribution[order(contribution[,2]),],num = 1:(length(coef)))
+  col = c('#ff7473','#ffc952','#47b8e0','#34314c','#f349eb','#ff7499','#ffc999','#47b899','#343199','#f34999','#1B191999',"#FED43999","#709AE199","#FD744699","#D5E4A299","#46732E99","#71D0F599")#
+  #pie(rep(1, 11), col = col)
+  P <- ggplot(contribution,aes(x = num, y = num))  +  geom_bar(aes(fill = factor(Signature)),stat = "identity") +  
+    labs(x = "Radomics signature",y = expression('Coefficients X'~10^3~" "), fill = "Signature",title  =  "Radiomics signature") + geom_text(aes(label = coefficients))  + 
+   coord_polar(theta  =  "x") + theme_bw() + theme(panel.border = element_rect(color = "white"),plot.title = element_text(face = "bold",hjust = 0.5,size = 16),legend.position = c(0.9,0.9),legend.justification = c(0.2,1)) + 
+    theme(plot.caption = element_text(hjust = 0,size = 16)) + theme(axis.text.y  =  element_blank(),axis.text.x  =  element_blank(),legend.position = c(0.9,0.80))# + scale_fill_manual(values = col)
+#tiff(file = "contribution.tiff", width = 8000, height = 4500, units = "px",compression = "lzw", res = 600)
+  print(P)
+#garbage <- dev.off()
+}
+#-----------------------------------------------heatmap------------------------------------------
+#col = c('#ff7473','#ffc952','#47b8e0','#34314c','#f349eb','#ff7499','#ffc999','#47b899','#343199','#f34999');pie(rep(1, 10), col = col)
+heatmap.plot <- function(...) {
+  corr  =  cor(heatmap)
+  res  <-  cor.mtest(heatmap, conf.level  =  .95)
+  corrplot(corr,  diag = F, order  =  "hclust", addrect  =  2,method  =  c("color"),tl.col = "black", tl.srt  =  45, p.mat  =  res$p, insig  =  "label_sig", sig.level  =  c(.001, .01, .05), pch.cex  =  .9, pch.col  =  "white",mar = c(1, 1, 3, 0.5)) 
+#tiff(file = "heatmap.tiff", width = 16000, height = 9000, units = "px",compression = "lzw", res = 600)
+  corrplot(corr, addrect  =  2,method  =  c("color"),tl.col = "black", tl.srt  =  45, p.mat  =  res$p, insig  =  "label_sig", sig.level  =  c(.001, .01, .05), pch.cex  =  .9, pch.col  =  "white",mar = c(1, 1, 2, 0.5)) 
+  title(main = "Associations between radiomics signature and clinical parameters", line = 2) 
+  mtext("D",side = 1,adj = 0, padj = 2, font = 2 )
+#garbage <- dev.off()
+}
+#-----------------Co-occurrence-----------------------------#
+#col = c('#ff7473','#ffc952','#47b8e0','#34314c','#f349eb','#ff7499','#ffc999','#47b899','#343199','#f34999');pie(rep(1, 10), col = col)
+co.plot <- function(data,...) {
+occor  =  corr.test(data ,use = "pairwise",method = "spearman",adjust = "fdr",alpha = 0.05)
+occor$r[occor$p > 0.05] = 0 
+igraph  =  graph_from_adjacency_matrix(occor$r,mode = "undirected",weighted = T,diag = F)
+igraph.weight  =  E(igraph)$weight
+E(igraph)$weight  =  NA
+sum(igraph.weight > 0)# number of postive correlation
+sum(igraph.weight < 0)# number of negative correlation
+E.color  =  igraph.weight
+E.color  =  ifelse(E.color > 0, "#ff7473",ifelse(E.color < 0,"#47b8e0", "#ffc952"))
+E(igraph)$color  =  as.character(E.color)
+E(igraph)$width  =  abs(igraph.weight)*5
+fc  =  cluster_walktrap(igraph,weights  = NULL)# cluster_walktrap, cluster_edge_betweenness, cluster_fast_greedy, cluster_spinglass
+modularity  =  modularity(igraph,membership(fc))
+comps  =  membership(fc)
+col = c('#ff7473','#ffc952','#47b8e0','#34314c','#f349eb','#ff7499','#ffc999','#47b899','#343199','#f34999')
+colbar  =  col[1:max(comps)]
+#V(igraph)$color  =  colbar[comps] 
+V(igraph)$color  = "#ff7473"
+V(igraph)[1]$color = "#47b8e0"  # first name
+V(igraph)[2:12]$color = "#ffc952"  # 
+#par(mar = c(0, 0, 1, 0)) #c(bottom, left, top, right)  #layout.graphopt
+#out = layout.graphopt
+out = layout.star
+#tiff(file = "CO.tiff", width = 7000, height = 5000, units = "px",compression = "lzw", res = 300)
+plot(igraph,main = " Co-occurrence network of clinical parameters and radiomics features",vertex.label.cex=1,vertex.size = 16,edge.lty = 1,edge.curved = T,margin = c(0,0,0,0), layout = out )
+#garbage <- dev.off()
+}
+#------------------------------------nomogram----------------------------
+NOMO.plot <- function(...) {
+#tiff(file = "nomo.tiff", width = 4500, height = 2000, units = "px",compression = "lzw", res = 300)
+  plot(nomo.pic,funlabel="g Probability")
+  title(main = "Radiomics nomogram of Primary group")
+  mtext("A",side = 1,adj = 0, font = 2 )
+#garbage <- dev.off()
+}
+#--------------------calibrate.plot-----------------------------
+calibrate.plot <- function(model,...)
+{
+  cal  <-  calibrate(model, method  = "boot", B = 100)
+  calplot <-  melt(data.frame(x =  cal[,1],Apparent = cal[,2],Bias.corrected = cal[,3]),id.vars = "x")
+  #  calplot$index <- c(cal[,4],cal[,8])
+  # calplot1 <-  data.frame(x =  cal[,1],y = cal[,2],z = cal[,3])
+  # err0  <-  cal[,1] - approx((cal[,1] + cal[,3]), cal[,3], xout = cal[,1], ties = mean)$y   
+  x <- cal
+  at  <-  attributes(x) 
+  p      <-  x[,"predy"]                                      
+  #p.app  <-  x[,"calibrated.orig"]                               
+  p.cal  <-  x[,"calibrated.corrected"]                       
+  predicted  <-  at$predicted  
+  his.x <- data.frame(x = predicted,y0 = 0)
+  s  <-  !is.na(p  +  p.cal)     
+  err  <-  predicted - approx(p[s], p.cal[s], xout = predicted, ties = mean)$y     
+  text1 <- print(paste('Mean absolute error = ',round(mean(abs(err), na.rm = TRUE),3),sep = ''))
+  text2 <- print(paste('Mean squared error = ',  round(mean(err^2, na.rm = TRUE),5),sep = ''))
+  text3 <- print(paste('n = ',length(err)),sep = '')
+  #'n = ',length(err)
+  #'#AA <- ggExtra::ggMarginal(p  =  p, data = his,x = x,y = ..density.., type  =  'histogram',binwidth = 0.01, margins  =  'x',  size  =  9,  fill  =  '#00648B99') #, binwidth  =  0.01
+  ggplot(calplot) + geom_line(aes(x,value,color = variable),size = 1) + geom_abline(color = "grey50",size = 0.6,linetype = "dashed") +
+    theme_bw()  +  theme(panel.border  =  element_rect(color = "white"),plot.title = element_text(face = "bold",size = 12,hjust = 0.5,vjust = 0.5),legend.position = c(0.85,0.4),plot.caption = element_text(hjust = 0,size = 16)) +
+    geom_point(data = his.x,aes(x,y=0),size = 0.1,alpha = 0) + guides(colour = guide_legend(title = "")) + ylim(-0.05,1.05) +
+    annotate("text", x = 0 , y = 1 ,label = text1, hjust = "inward") + annotate("text", x = 0, y = 0.95 ,label = text2, hjust = "inward") + annotate("text", x = 0, y = 0.9 ,label = text3, hjust = "inward") +
+    labs(x = "Nomogram predicted g probability", y = "Actual g rate")
+}
+
+CALIBRATE.plot <- function(model1,model2,...){
+  #ccc
+#tiff(file = "calibrate.tiff", width = 3000, height = 1500, units = "px",compression = "lzw", res = 300)
+#  lay1 <- lay_new( mat = matrix(1:2, nrow = 1)) 
+#  lay_show(lay1)
+#  lay_set(lay1) 
+  AA <- calibrate.plot(model1) + labs(title  =  "Primary group", caption  =  "B")
+  A <- ggExtra::ggMarginal(p  =  AA, data = his,x = x,y = ..density.., type  =  'histogram',binwidth = 0.01, margins  =  'x',  size  =  9,  fill  =  '#00648B99')
+  BB <- calibrate.plot(model2) + labs(title  =  "Validation group", caption  =  "C") 
+  B <- ggExtra::ggMarginal(p  =  BB, data = his,x = x,y = ..density.., type  =  'histogram',binwidth = 0.01, margins  =  'x',  size  =  9,  fill  =  '#00648B99')
+#  lay_grid(list(A, B), lay1)
+#  garbage <- dev.off()
+}
+#-----------------------NRI-----------------------------------
+NRI <- function(data1,data2,cutoff,...){
+  ss.model1 <- glm(y~.,data = data1,x = T,y = T,family = binomial('logit')) 
+  NOMO.model1 <- glm(y~.,data = data2,x = T,y = T,family = binomial('logit'))
+  pstd <- ss.model1$fitted.values
+  pnew <- NOMO.model1$fitted.values
+  reclassification(data = data2,cOutcome = 1,predrisk1 = pstd,predrisk2 = pnew,cutoff = cutoff)
+}
+#--------------------roc----------------------------------
+roc.plot <- function(y,x,...){
+  auc <- roc(y,x,ci = TRUE, ci.alpha = 0.9,percent = TRUE)
+  senspe <- coords(auc, "best", ret  =  "all", transpose  =  FALSE)
+  print(senspe)
+  print(auc)
+  AUC <- plot.roc(auc, ci = TRUE,print.auc = TRUE, print.thres = "best",mar = c(4, 4, 5, 2) + .1)  # c(bottom, left, top, right)
+  ciobj  <-  ci.se(AUC, specificities = seq(0, 100, 5)) # over a select set of specificities
+  plot(ciobj, type = "shape", col = "#1c61b6AA") # plot as a blue shape
+  plot(ci(AUC, of = "thresholds", thresholds = "best")) # add one threshold
+}
+
+ROC.plot <- function(y1,x1,y2,x2,...) { 
+  tiff(file = "ROC.tiff", width = 4000, height = 4000, units = "px",compression = "lzw", res = 600)
+  plot.roc(y1, x1, col = "#A00D19")
+  lines.roc(y2, x2, col = "#1c61b6")
+  title(main = "AUC of ROC in Training and Validation group") 
+  legend("bottomright", legend = c("Primary group","Validation group"), col = c("#A00D19","#1c61b6"), lwd = 1)
+  garbage <- dev.off()
+}
+#--------------------dca----------------------------------
+dca.plot <- function(data,...){
+#tiff(file = "DCA.tiff", width = 6000, height = 4000, units = "px",compression = "lzw", res = 600)
+  rad <- decision_curve(y~radscore,data = data, family = binomial(link ='logit'))
+  clin<- decision_curve(y~clinical,data = data, family = binomial(link ='logit'))
+  nomo<- decision_curve(y~nomogram,data = data, family = binomial(link ='logit'))
+  list<- list(rad,clin,nomo)
+  plot_decision_curve(list,confidence.intervals = F, cost.benefit.axis = F,curve.names= c('radomics','clinical','nomogram'),col = c('#ffc952','#47b8e0','#ff7473'),
+                      legend.position = "none",main="Clinical Decision curve analyses")
+  legend("topright",legend = c('radomics','clinical','nomogram',"All","None"), fill = c('#ffc952','#47b8e0','#ff7473','grey','black'),bty = "n")
+#garbage <- dev.off()
+summary(nomo)
+  }
+#------------------------Package--------------------#
+source("scripts/lung-source.R")
+set.seed(6)
+DATA  <-  data.frame(read_excel("./lung.xlsx", sheet = "data"))
+val  <-  data.frame(read_excel("./lung.xlsx", sheet = "val"))
+#histogram(DATA$original_shape_Elongation,n=80, col = "#47b8e0")
+#histogram(DATA$original_shape_Flatness,n=80, col = "#ff7473")
+data <- DATA
+DATA$gender<-factor(DATA$gender,levels = c(0,1),labels = c("female","male"))
+DATA$subtype<-factor(DATA$subtype,levels = c(1,2,3,4),labels = c("pGGN(i)","pGGN(h)","mGGN","solid"))
+val$gender<-factor(val$gender,levels = c(0,1),labels = c("female","male"))
+val$subtype<-factor(val$subtype,levels = c(1,2,3,4),labels = c("pGGN(i)","pGGN(h)","mGGN","solid"))
+#-------------------------ICC---------------------------
+ICC.data <- data.frame(read_excel("./lung.xlsx",sheet = "icc")) [,-(1:2)] 
+ICC0 <- function(x){icc(cbind(x[2:31],x[32:61]))$value}
+featuresicc0 <- data.frame( icc = apply(ICC.data, 2, ICC0))
+ICCfeature0 <- rownames(subset(abs(featuresicc0), icc > 0.75 ))
+ICC1 <- function(x){icc(cbind(x[62:91],x[92:121]))$value}
+featuresicc1 <- data.frame( icc = apply(ICC.data, 2, ICC1))
+ICCfeature1 <- rownames(subset(abs(featuresicc1), icc > 0.75 ))
+ICCfeature <- intersect(ICCfeature0,ICCfeature1)
+icc.data <- DATA[ICCfeature]
+#-----------------------preProcess---------------------------#
+process <- preProcess(icc.data,method = c("center","scale","corr"))  
+rad.x <- predict(process,newdata = icc.data)
+#-----------------------val preProcess----------------#
+process.v <- preProcess(val[names(rad.x)],method = c("center","scale"))  
+rad.v <- predict(process.v,newdata = val[names(rad.x)])
+#-----------------------subgroup-----------------------#
+Index <- createDataPartition(DATA$group, p = 0.7,list = FALSE,times = 1)
+Train <- data.frame(DATA[ Index,][1:6],rad.x[Index,])
+Test0  <- data.frame(DATA[-Index,][1:6],rad.x[-Index,])
+Test1 <- data.frame(val[1:6],rad.v)
+Test  <- rbind(Test0,Test1)
+#cor.test(Test$group,Test$diameter, method = "pearson")
+#---------------LASSO-------------------------------------#
+lasso.x <- as.matrix(rad.x[Index,])  
+lasso.y <- as.matrix(Train$group)
+signature <- LASSO(x = lasso.x,y = lasso.y)
+#------------------radscore-----------------------#
+rad.model <- glm(y~.,data = data.frame(y = Train$group,Train[signature])) 
+radscore.p <- predict(rad.model)
+#------------------equation------------------------#
+rad.coef <- round(rad.model$coefficient[-1],5)
+equation <-  round(rad.model$coefficient[1],5)
+for (n in 1:length(signature) ) { equation <-  paste(equation," + ",rad.coef[n],"×",signature[n],sep = "") }
+print(paste("Radscore  = ",equation))
+#------------------clinscore-----------------------#
+clin.data.p <- data.frame(y = Train$group,Train[2],Train[5]) 
+clin.model.p <- glm(y~.,data = clin.data.p)
+clinscore.p <- predict(clin.model.p)
+#clin.model.p2 <- glm(group~.,data = data.frame(Train[1:3],radscore.p))
+#clinscore.p2 <- predict(clin.model.p2)
+#clin.model.p3 <- glm(group~.,data = data.frame(Train[1:3]))
+#clinscore.p3 <- predict(clin.model.p3)
+#clin.model.p4 <- glm(group~.,data = data.frame(Train[1],Train[4:5]))
+#clinscore.p4 <- predict(clin.model.p4)
+#-------------------nomogram------------------#
+nomo.data.p <- data.frame(group = Train$group, Radscore = radscore.p, Train[2],Train[5]) 
+dd = datadist(nomo.data.p)
+options(datadist = "dd")
+nomo.model <- lrm(group~.,data = nomo.data.p,x = T,y = T)
+nomo.pic<-nomogram(nomo.model, fun=plogis,lp=F)
+plot(nomo.pic)
+cal <- calibrate(nomo.model, method = 'boot',m=50)
+plot(cal)
+nomoscore.p <- predict(nomo.model)
+# chack <- data.frame(Train$name,Train$group,nomoscore.p)
+#--------------------------------------------------validation---------------------------------#
+#------------------radscore-----------------------#
+#radscore.v <- predict(rad.model,newdata = data.frame(y = Test$group,Test[signature]))
+rad.model.v <- glm(y~.,data = data.frame(y = Test$group,Test[signature])) 
+radscore.v <- predict(rad.model.v)
+#------------------clinscore-----------------------#
+clin.data.v <- data.frame(y = Test$group,Test[2:5]) 
+clin.model.v <- glm(y~.,data = clin.data.v )
+clinscore.v <- predict(clin.model.v)
+#clinscore.v <- predict(clin.model.p,newdata=clin.data.v)
+#clin.model.v2 <- glm(group~.,data = data.frame(Test[1:3],radscore.v))
+#clinscore.v2 <- predict(clin.model.v2)
+#clin.model.v3 <- glm(group~.,data = data.frame(Test[1:3]))
+#clinscore.v3 <- predict(clin.model.v3)
+#clin.model.v4 <- glm(group~.,data = data.frame(Test[1],Test[4:5]))
+#clinscore.v4 <- predict(clin.model.v4)
+#-------------------nomogram------------------#
+nomo.data.v <- data.frame(group = Test$group,Radscore =radscore.v, Test[2],Test[5])
+#nomoscore.v <- predict(nomo.model,newdata = nomo.data.v)
+dd = datadist(nomo.data.v)
+options(datadist = "dd")
+nomo.model.v <- lrm(group~.,data = nomo.data.v,x = T,y = T)
+cal.v <- calibrate(nomo.model.v, method = 'boot',m=50)
+plot(cal.v)
+nomoscore.v <- predict(nomo.model.v)
+# chack1 <- data.frame(Test$name,Test$group,nomoscore.v)
+#------------------ROC------------------------#
+#roc.plot(Train$group,radscore.p,ci = T)
+#roc.plot(Train$group,clinscore.p,ci = T)
+#roc.plot(Train$group,nomoscore.p,ci = T)
+
+#roc.plot(Test$group,radscore.v,ci = T)
+#roc.plot(Test$group,clinscore.v,ci = T)
+#roc.plot(Test$group,nomoscore.v,ci = T)
+#--------------------heatmap------------------------#
+cln_data <- read_xlsx("lung.xlsx",sheet="clinical")[5:15][-4]
+heatmap <- data.frame(growth = rbind(data,val)[,1],rbind(data,val)[signature],cln_data) 
+colnames(heatmap)[15:17]<-c("MD","nodule type","pleural retraction")
+colnames(heatmap)[20]<- "previous LCH"
+colnames(heatmap)[22]<-"family LCH"
+#--------------------DCA------------------------#
+dca.data.p <- data.frame(y=Train[,1],radscore=radscore.p,clinical=clinscore.p,nomogram=nomoscore.p)
+dca.data.v <- data.frame(y= Test[,1],radscore=radscore.v,clinical=clinscore.v,nomogram=nomoscore.v)
+#------------plot-----------------------------------------
+pdf(file="result.pdf", width = 16, height = 9)
+#  LASSO.plot(x = lasso.x,y = lasso.y)
+#  contribution.plot(coef = coef(rad.model)[-1])
+RADSCORE.plot(y1=Train[,1] ,x1= radscore.p,y2= Test[,1] ,x2= radscore.v)
+  co.plot(data= heatmap)
+ # NOMO.plot()
+  CALIBRATE.plot(nomo.model,nomo.model.v)
+  #dca.plot(dca.data.p)
+  dca.plot(dca.data.v)
+# heatmap.plot()
+dev.off()
